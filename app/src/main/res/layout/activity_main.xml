@@ -53,11 +53,11 @@
         android:id="@+id/sparkView"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        app:layout_constraintBottom_toTopOf="@+id/radioGroup2"
+        app:layout_constraintBottom_toTopOf="@+id/radioGroupTime"
         app:layout_constraintTop_toBottomOf="@id/radioGroup" />
 
     <RadioGroup
-        android:id="@+id/radioGroup2"
+        android:id="@+id/radioGroupTime"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:gravity="center"

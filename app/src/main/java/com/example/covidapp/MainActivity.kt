@@ -4,6 +4,7 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
 import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.TextView
 import com.google.gson.GsonBuilder
 import com.robinhood.spark.SparkView
@@ -19,6 +20,7 @@ import java.util.*
 private const val BASE_URL = "https://covidtracking.com/api/v1/"
 private const val TAG = "MainActivity"
 class MainActivity : AppCompatActivity() {
+    private lateinit var adapter: CovidSparkAdapter
     private lateinit var perStateDailyData: Map<String, List<CovidData>>
     private lateinit var nationalDailyData: List<CovidData>
     private lateinit var tvMetricLabel : TextView
@@ -26,6 +28,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var rbPositive : RadioButton
     private lateinit var rbMax : RadioButton
     private lateinit var sparkView: SparkView
+    private lateinit var radioGroupTime : RadioGroup
+    private lateinit var radioGroupMetric : RadioGroup
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,6 +39,8 @@ class MainActivity : AppCompatActivity() {
         rbPositive = findViewById(R.id.radioButtonPositive)
         rbMax = findViewById(R.id.radioButtonMax)
         sparkView = findViewById(R.id.sparkView)
+        radioGroupTime = findViewById(R.id.radioGroupTime)
+        radioGroupMetric = findViewById(R.id.radioGroup)
 
         val gson = GsonBuilder().setDateFormat("yyyy-MM-dd'T'HH:mm:ss").create()
         val retrofit = Retrofit.Builder()
@@ -55,6 +61,8 @@ class MainActivity : AppCompatActivity() {
                     Log.w(TAG, "Did not receive a valid response body")
                     return
                 }
+
+                setupEventListener()
                 nationalDailyData = nationalData.reversed()
                 Log.i(TAG, "update graph with national data")
                 updateDisplayWithData(nationalDailyData)
@@ -80,8 +88,40 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+    private fun setupEventListener() {
+        //add listener for the user scrubbing on the chart
+        sparkView.isScrubEnabled = true
+        sparkView.setScrubListener { itemData ->
+            if (itemData is CovidData){
+                updateInfoForDate(itemData)
+            }
+        }
+
+        //respon radion button
+        radioGroupTime.setOnCheckedChangeListener { _, checkedId ->
+            adapter.daysAgo = when (checkedId){
+                R.id.radioButtonWeek -> TimeScale.WEEK
+                R.id.radioButtonMonth -> TimeScale.MONTH
+                else -> TimeScale.MAX
+            }
+            adapter.notifyDataSetChanged()
+        }
+        radioGroupMetric.setOnCheckedChangeListener { _, checkedId ->
+            when(checkedId){
+                R.id.radioButtonNegative -> updateDisplayMetric(Metric.NEGATIVE)
+                R.id.radioButtonPositive -> updateDisplayMetric(Metric.POSITIVE)
+                R.id.radioButtonDeath -> updateDisplayMetric(Metric.DEATH)
+            }
+        }
+    }
+
+    private fun updateDisplayMetric(metric: Metric) {
+        adapter.metric = metric
+        adapter.notifyDataSetChanged()
+    }
+
     private fun updateDisplayWithData(dailyData: List<CovidData>) {
-        val adapter = CovidSparkAdapter(dailyData)
+        adapter = CovidSparkAdapter(dailyData)
         sparkView.adapter = adapter
         rbPositive.isChecked = true
         rbMax.isChecked = true
@@ -89,7 +129,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateInfoForDate(covidData: CovidData) {
-        tvMetricLabel.text = NumberFormat.getInstance().format(covidData.positiveIncrease)
+        val numCases = when(adapter.metric){
+            Metric.NEGATIVE -> covidData.negativeIncrease
+            Metric.POSITIVE -> covidData.positiveIncrease
+            Metric.DEATH -> covidData.deathIncrease
+        }
+        tvMetricLabel.text = NumberFormat.getInstance().format(numCases)
         val outputDateFormat = SimpleDateFormat("MM dd, yyyyy", Locale.US)
         tvDateLabel.text = outputDateFormat.format(covidData.dateChecked)
     }
